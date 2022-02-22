@@ -1,103 +1,116 @@
 package com.sameeraw.remindbuddy.ui.home.reminder
 
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import com.sameeraw.remindbuddy.data.entity.Reminder
+import com.skydoves.landscapist.glide.GlideImage
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun ReminderListItem(reminder: Reminder) {
+fun ReminderListItem(reminder: Reminder,onItemClick :()->Unit,
+onDeleteClick:()->Unit) {
+
+    val reminderIcons = listOf<ImageVector>(
+        Icons.Default.SupervisedUserCircle,
+        Icons.Default.House,
+        Icons.Default.CarRepair,
+        Icons.Default.TravelExplore,
+        Icons.Default.Medication,
+        Icons.Default.Train,
+        Icons.Default.Language,
+        Icons.Default.Book,
+        Icons.Default.Phone
+    )
 
     ConstraintLayout(modifier = Modifier
         .clickable {
-
+            onItemClick()
         }
-        .fillMaxWidth()) {
-        val (divider, paymentTitle, paymentCategory, icon, date) = createRefs()
-
+        .fillMaxWidth()
+        .height(80.dp),
+    ) {
+        val (divider, reminderTitle,reminderDescription, reminderDate, reminderIcon, reminderImage,deleteIcon) = createRefs()
         Divider(
             modifier = Modifier.constrainAs(divider) {
                 top.linkTo(parent.top)
                 width = Dimension.fillToConstraints
             }
         )
-        Text(text = reminder.content,
+
+        if(reminder.imageURL != null ){
+            GlideImage(imageModel = Uri.parse(reminder.imageURL),
+                Modifier
+                    .fillMaxWidth()
+                    .height(80.dp), alpha = 0.2f)
+        }
+
+        IconButton(onClick = { /*TODO*/ }, modifier = Modifier
+            .size(40.dp)
+            .padding(6.dp)
+            .constrainAs(reminderIcon) {
+                top.linkTo(parent.top, 10.dp)
+                bottom.linkTo(parent.bottom, 10.dp)
+            }) {
+            Icon(imageVector = reminderIcons.first {
+                it.name == reminder.icon
+            }, contentDescription = "Check",modifier = Modifier.size(50.dp))
+        }
+
+        Text(text = reminder.title,
             maxLines = 1,
-            style = MaterialTheme.typography.subtitle1,
-            modifier = Modifier.constrainAs(paymentTitle) {
-                linkTo(
-                    start = parent.start,
-                    end = icon.start,
-                    startMargin = 24.dp,
-                    endMargin = 16.dp,
-                    bias = 0f
-                )
+            style = MaterialTheme.typography.h6,
+            modifier = Modifier.constrainAs(reminderTitle) {
+                start.linkTo(reminderIcon.end)
                 top.linkTo(parent.top, margin = 10.dp)
                 width = Dimension.preferredWrapContent
-
             })
-        //category
-        Text(text = reminder.category,
+
+        Text(text = reminder.message,
             maxLines = 1,
-            style = MaterialTheme.typography.subtitle2,
-            modifier = Modifier.constrainAs(paymentCategory) {
-                linkTo(
-                    start = parent.start,
-                    end = icon.start,
-                    startMargin = 24.dp,
-                    endMargin = 8.dp,
-                    bias = 0f
-                )
-                top.linkTo(paymentTitle.bottom, margin = 6.dp)
-                bottom.linkTo(parent.bottom, margin = 10.dp)
+            style = MaterialTheme.typography.caption,
+            modifier = Modifier.constrainAs(reminderDescription) {
+                top.linkTo(parent.top, margin = 15.dp)
+                bottom.linkTo(reminderTitle.bottom)
+                start.linkTo(reminderTitle.end,margin = 5.dp)
                 width = Dimension.preferredWrapContent
-
             })
-
-        //Date
+       //Date
         Text(
-            text = when {
-                reminder.date != null -> {
-                    reminder.date.formatToString()
-                }
-                else -> Date().formatToString()
-            },
+            text = "On " +reminder.reminderTime.formatToString() + " At, "+ reminder.reminderTime.formatToTimeString(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.caption,
-            modifier = Modifier.constrainAs(date) {
-                linkTo(
-                    start = paymentCategory.end,
-                    end = icon.start,
-                    startMargin = 8.dp,
-                    endMargin = 16.dp
-                )
-                top.linkTo(paymentTitle.bottom, margin = 6.dp)
-                bottom.linkTo(parent.bottom, margin = 10.dp)
+            style = MaterialTheme.typography.subtitle2,
+            modifier = Modifier.constrainAs(reminderDate) {
+                top.linkTo(reminderTitle.bottom)
+                bottom.linkTo(parent.bottom, margin = 5.dp)
+                start.linkTo(reminderIcon.end)
             }
         )
-        IconButton(onClick = { /*TODO*/ }, modifier = Modifier
+        IconButton(onClick = { onDeleteClick() }, modifier = Modifier
             .size(50.dp)
             .padding(6.dp)
-            .constrainAs(icon) {
+            .constrainAs(deleteIcon) {
                 top.linkTo(parent.top, 10.dp)
                 bottom.linkTo(parent.bottom, 10.dp)
                 end.linkTo(parent.end)
             }) {
-            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Check")
-
+            Icon(imageVector = Icons.Default.Delete, contentDescription = "Check", tint = Color.Red)
         }
     }
 }
@@ -105,3 +118,12 @@ fun ReminderListItem(reminder: Reminder) {
 private fun Date.formatToString(): String {
     return SimpleDateFormat("MM dd,yyyy", Locale.getDefault()).format(this)
 }
+
+private fun Long.formatToString(): String {
+    return SimpleDateFormat("MM dd,yyyy", Locale.getDefault()).format(this)
+}
+
+private fun Long.formatToTimeString(): String {
+    return SimpleDateFormat("kk:mm", Locale.getDefault()).format(this)
+}
+

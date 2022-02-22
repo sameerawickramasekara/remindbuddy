@@ -54,7 +54,7 @@ fun Register(
             viewModel.eventsFlow.collect {event ->
                 when(event){
                     is RegisterViewModel.Event.RegisterSuccess -> {
-                        Toast.makeText(context,"Successfully registered!,Please Login",Toast.LENGTH_LONG).show()
+                        Toast.makeText(context,"Successfully registered !, Please Login",Toast.LENGTH_LONG).show()
                         delay(500)
                         navController.navigate(Screen.Login.route)
                     }
@@ -109,7 +109,7 @@ fun Register(
             )
             Text(
                 modifier = Modifier.padding(horizontal = 30.dp, vertical = 10.dp),
-                text = "Please fill the details to crete an Account",
+                text = "Please fill the details to create an Account",
                 style = MaterialTheme.typography.body2,
 
                 )
@@ -208,7 +208,7 @@ fun Register(
                     email = newEmail.value,
                     pin = newPinCode.value
                 )}) {
-                Text(text = "Crete Account")
+                Text(text = "Create Account")
             }
             OutlinedButton(
                 modifier = Modifier

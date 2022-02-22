@@ -58,7 +58,7 @@ fun PINLogin(
                     navController.navigate(Screen.Home.route)
                 }
                 is LoginViewModel.Event.loginError -> {
-                    Toast.makeText(con, "Invalid Username Or Password", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(con, "Invalid PIN Code!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -117,7 +117,7 @@ fun PINLogin(
                 }
                 .border(1.dp, Color.DarkGray),
                 value = editValue.getOrNull(0)?.toString() ?: "",
-                isCursorVisible = editValue.length == 0)
+                )
 
             Spacer(modifier = Modifier.size(8.dp))
 
@@ -129,7 +129,7 @@ fun PINLogin(
                 }
                 .border(1.dp, Color.DarkGray),
                 value = editValue.getOrNull(1)?.toString() ?: "",
-                isCursorVisible = editValue.length == 1)
+                )
 
             Spacer(modifier = Modifier.size(8.dp))
 
@@ -141,7 +141,7 @@ fun PINLogin(
                 }
                 .border(1.dp, Color.DarkGray),
                 value = editValue.getOrNull(2)?.toString() ?: "",
-                isCursorVisible = editValue.length == 2)
+                )
 
             Spacer(modifier = Modifier.size(8.dp))
 
@@ -153,7 +153,7 @@ fun PINLogin(
                 }
                 .border(1.dp, Color.DarkGray),
                 value = editValue.getOrNull(3)?.toString() ?: "",
-                isCursorVisible = editValue.length == 3)
+               )
 
             Spacer(modifier = Modifier.size(8.dp))
         }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sameeraw.remindbuddy.repository.UserRepository
+import com.sameeraw.remindbuddy.ui.home.reminder.ReminderViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -15,6 +16,7 @@ class HomeViewModel(
     sealed class Event {
         object LogoutSuccess : Event()
         object LogoutError : Event()
+        data class NavigateToAddEditReminder(val reminderId:Long?):Event()
     }
 
     private val eventChannel = Channel<HomeViewModel.Event>(Channel.BUFFERED)
@@ -24,6 +26,12 @@ class HomeViewModel(
         viewModelScope.launch {
             userRepository.logoutUser()
             eventChannel.send(Event.LogoutSuccess)
+        }
+    }
+
+    fun onAddNewReminder(reminderId:Long?){
+        viewModelScope.launch {
+            eventChannel.send(Event.NavigateToAddEditReminder(reminderId))
         }
     }
 }

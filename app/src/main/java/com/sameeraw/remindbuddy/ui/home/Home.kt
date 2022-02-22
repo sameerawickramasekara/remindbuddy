@@ -23,6 +23,8 @@ import com.sameeraw.remindbuddy.ui.home.reminder.ReminderList
 import com.sameeraw.remindbuddy.ui.navigation.Screen
 import kotlinx.coroutines.flow.collect
 
+val NEW_REMINDER = -1L
+
 @Composable
 fun Home(
     viewModel: HomeViewModel = viewModel(
@@ -34,7 +36,10 @@ fun Home(
 ) {
 
     val context = LocalContext.current
-    val expanded = rememberSaveable {
+    val profileMenuExpanded = rememberSaveable {
+        mutableStateOf(false)
+    }
+    val showAddReminder = rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -46,6 +51,11 @@ fun Home(
                     Toast.makeText(context, "Logged out", Toast.LENGTH_LONG).show()
                     navController.navigate(Screen.Login.route)
                 }
+                is HomeViewModel.Event.NavigateToAddEditReminder -> {
+                    event.reminderId.let {
+                        navController.navigate(Screen.AddEditReminder.route+"?reminderId=${event.reminderId}")
+                    }
+                }
             }
 
         }
@@ -56,7 +66,9 @@ fun Home(
             modifier = Modifier.padding(bottom = 24.dp),
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = { },
+                    onClick = {
+                          viewModel.onAddNewReminder(NEW_REMINDER)
+                    },
                     contentColor = MaterialTheme.colors.primaryVariant,
                     modifier = Modifier.padding(all = 20.dp)
                 ) {
@@ -93,7 +105,7 @@ fun Home(
                                 .wrapContentSize(Alignment.TopEnd)
                         ) {
                             IconButton(onClick = {
-                                expanded.value = true
+                                profileMenuExpanded.value = true
                             }) {
                                 Icon(
                                     Icons.Default.AccountCircle,
@@ -102,11 +114,11 @@ fun Home(
                             }
 
                             DropdownMenu(
-                                expanded = expanded.value,
-                                onDismissRequest = { expanded.value = false },
+                                expanded = profileMenuExpanded.value,
+                                onDismissRequest = { profileMenuExpanded.value = false },
                             ) {
                                 DropdownMenuItem(onClick = {
-                                    expanded.value = false
+                                    profileMenuExpanded.value = false
                                 }) {
                                     Text("Profile")
                                 }
@@ -114,7 +126,7 @@ fun Home(
                                 Divider()
 
                                 DropdownMenuItem(onClick = {
-                                    expanded.value = false
+                                    profileMenuExpanded.value = false
 
                                     viewModel.logoutUser()
                                 }) {
@@ -125,7 +137,7 @@ fun Home(
                         }
 
                     })
-                ReminderList()
+                ReminderList(navController = navController)
             }
 
         }

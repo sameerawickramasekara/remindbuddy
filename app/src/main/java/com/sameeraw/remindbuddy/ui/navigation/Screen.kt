@@ -6,4 +6,5 @@ sealed class Screen(val route:String) {
     object Home:Screen("home")
     object Splash:Screen("splash")
     object Register:Screen("register")
+    object AddEditReminder:Screen("add-edit-reminder")
 }

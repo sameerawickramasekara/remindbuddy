@@ -1,34 +1,81 @@
 package com.sameeraw.remindbuddy.ui.home.reminder
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
+import com.sameeraw.remindbuddy.data.entity.Reminder
+import com.sameeraw.remindbuddy.ui.navigation.Screen
 
 @Composable
 fun ReminderList(
-    viewModel: ReminderListViewModel = viewModel()
+    viewModel: ReminderListViewModel = hiltViewModel(),
+    navController: NavHostController
 ) {
-    val viewState by viewModel.state.collectAsState()
+    val reminders = viewModel.reminders.collectAsState(initial = emptyList())
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val deleteReminder = rememberSaveable{
+        mutableStateOf<Reminder?>(null)
+    }
+
+
+    if(deleteReminder.value != null ){
+        AlertDialog(onDismissRequest = { /*TODO*/ },
+            title = {
+                Text(text = "Delete Reminder")
+            },
+            text = {
+                deleteReminder.value?.let {
+                    Text(text = "Are you sure you want to delete the reminder titled : "+ deleteReminder.value!!.title)
+                }
+            },
+            buttons = {
+                Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceAround) {
+                    Button(modifier  = Modifier.width(100.dp),
+                        onClick = {
+                        deleteReminder.value = null
+                    }) {
+                        Text(text = "Cancel")
+                    }
+
+                    Button(
+                        modifier = Modifier.width(100.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = MaterialTheme.colors.onError,
+                            contentColor = Color.Black),
+                        onClick = {
+                            viewModel.deleteReminder(deleteReminder.value!!)
+                            deleteReminder.value = null
+                        }) {
+                        Text(text = "Delete")
+                    }
+                }
+            }
+        )
+    }
+
+        Column(modifier = Modifier.fillMaxWidth()) {
         LazyColumn(
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(viewState.reminders) { item ->
-                ReminderListItem(reminder = item)
+            items(reminders.value) { item ->
+                ReminderListItem(reminder = item, onItemClick = {
+                    navController.navigate(Screen.AddEditReminder.route+"?reminderId=${item.id}")
+                }, onDeleteClick = {
+                    deleteReminder.value = item
+                })
             }
 
         }
     }
-
-
 }

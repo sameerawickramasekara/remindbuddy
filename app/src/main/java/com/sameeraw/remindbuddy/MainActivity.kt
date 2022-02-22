@@ -11,7 +11,10 @@ import androidx.compose.ui.Modifier
 import com.google.accompanist.insets.ProvideWindowInsets
 import com.sameeraw.remindbuddy.ui.RemindBuddyApplication
 import com.sameeraw.remindbuddy.ui.theme.RemindbuddyTheme
+import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.HiltAndroidApp
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @ExperimentalComposeUiApi
     override fun onCreate(savedInstanceState: Bundle?) {

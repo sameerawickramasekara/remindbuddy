@@ -3,9 +3,12 @@ package com.sameeraw.remindbuddy.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.sameeraw.remindbuddy.ui.Register
+import com.sameeraw.remindbuddy.ui.home.reminder.AddEditReminder
 import com.sameeraw.remindbuddy.ui.home.Home
 import com.sameeraw.remindbuddy.ui.login.Login
 import com.sameeraw.remindbuddy.ui.login.PINLogin
@@ -33,6 +36,17 @@ fun RemindBuddyNavHost(navController: NavHostController) {
         }
         composable(route = Screen.Register.route) {
             Register(navController = navController)
+        }
+
+        composable(route = Screen.AddEditReminder.route+"?reminderId={reminderId}",
+                arguments = listOf(
+                    navArgument(name = "reminderId"){
+                        type= NavType.LongType
+                        defaultValue = -1
+                    }
+                )
+            ){
+            AddEditReminder(navController = navController)
         }
 
 
