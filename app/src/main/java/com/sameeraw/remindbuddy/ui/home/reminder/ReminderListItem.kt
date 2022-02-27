@@ -72,7 +72,7 @@ onDeleteClick:()->Unit) {
             }, contentDescription = "Check",modifier = Modifier.size(50.dp))
         }
 
-        Text(text = reminder.title,
+        Text(text = "${if(reminder.reminderSeen)"[DONE]" else ""}${reminder.title}",
             maxLines = 1,
             style = MaterialTheme.typography.h6,
             modifier = Modifier.constrainAs(reminderTitle) {
@@ -92,7 +92,10 @@ onDeleteClick:()->Unit) {
             })
        //Date
         Text(
-            text = "On " +reminder.reminderTime.formatToString() + " At, "+ reminder.reminderTime.formatToTimeString(),
+            text = when {
+                        reminder.reminderTime!=null -> "On " +reminder.reminderTime.formatToString() + " At, "+ reminder.reminderTime.formatToTimeString()
+                        else -> ""
+                        },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.subtitle2,

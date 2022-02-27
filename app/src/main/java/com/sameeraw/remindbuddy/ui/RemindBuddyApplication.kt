@@ -7,8 +7,9 @@ import com.sameeraw.remindbuddy.ui.navigation.RemindBuddyNavHost
 @ExperimentalComposeUiApi
 @Composable
 fun RemindBuddyApplication(
-    appState: RemindBuddyApplicationState = rememberAppState()
+    appState: RemindBuddyApplicationState = rememberAppState(),
+    reminderId:Long
 ) {
 
-    RemindBuddyNavHost(navController = appState.navController)
+    RemindBuddyNavHost(navController = appState.navController,reminderId)
 }

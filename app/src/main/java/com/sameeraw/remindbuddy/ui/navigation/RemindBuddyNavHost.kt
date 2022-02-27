@@ -16,7 +16,7 @@ import com.sameeraw.remindbuddy.ui.splash.Splash
 
 @ExperimentalComposeUiApi
 @Composable
-fun RemindBuddyNavHost(navController: NavHostController) {
+fun RemindBuddyNavHost(navController: NavHostController, reminderId:Long) {
 
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
 
@@ -32,7 +32,7 @@ fun RemindBuddyNavHost(navController: NavHostController) {
             PINLogin(navController = navController)
         }
         composable(route = Screen.Splash.route) {
-            Splash(navController = navController)
+            Splash(navController = navController, reminderId =  reminderId)
         }
         composable(route = Screen.Register.route) {
             Register(navController = navController)

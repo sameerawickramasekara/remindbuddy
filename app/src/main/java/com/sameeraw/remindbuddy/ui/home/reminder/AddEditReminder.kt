@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
@@ -46,11 +47,16 @@ fun AddEditReminder(
 ) {
     val context = LocalContext.current
 
+
     LaunchedEffect(key1 = true) {
         viewModel.eventsFlow.collect { event ->
             when (event) {
                 is ReminderViewModel.ReminderEvent.AddSuccess -> {
                     Toast.makeText(context, "Reminder Added", Toast.LENGTH_LONG).show()
+                    navController.navigate(Screen.Home.route)
+                }
+                is ReminderViewModel.ReminderEvent.MarkedDone -> {
+                    Toast.makeText(context, "Reminder Marked as Done", Toast.LENGTH_LONG).show()
                     navController.navigate(Screen.Home.route)
                 }
             }
@@ -62,32 +68,54 @@ fun AddEditReminder(
         mutableStateOf(false)
     }
 
+    val showNotificationSettings = rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    val markAsDoneReminder = rememberSaveable {
+        mutableStateOf(
+            false
+        )
+    }
+
     val calendar = remember {
         Calendar.getInstance()
     }
 
+    val year =
+        remember { if (viewModel.calendar != null) viewModel.calendar!![Calendar.YEAR] else 0 }
+    val month =
+        remember { if (viewModel.calendar != null) viewModel.calendar!![Calendar.MONTH] else 0 }
+    val day =
+        remember { if (viewModel.calendar != null) viewModel.calendar!![Calendar.DAY_OF_MONTH] else 0 }
+    val hour = remember { if (viewModel.calendar != null) calendar[Calendar.HOUR_OF_DAY] else 0 }
+    val minute = remember { if (viewModel.calendar != null) calendar[Calendar.MINUTE] else 0 }
+
     val datePickerDialog = DatePickerDialog(
         LocalContext.current,
         { view, year, month, dayOfMonth ->
-            val cal2 = viewModel.calendar.clone() as Calendar
+
+            val cal2 = viewModel.calendar!!.clone() as Calendar
             cal2[Calendar.DAY_OF_MONTH] = dayOfMonth
             cal2[Calendar.MONTH] = month
             cal2[Calendar.YEAR] = year
+            cal2[Calendar.SECOND] = 0
             viewModel.onChangeDateTime(cal2)
         },
-        viewModel.calendar[Calendar.YEAR],
-        viewModel.calendar[Calendar.MONTH],
-        viewModel.calendar[Calendar.DAY_OF_MONTH]
+        year,
+        month,
+        day
     )
 
     val timePickerDialog = TimePickerDialog(
         LocalContext.current,
         { _, hour: Int, minute: Int ->
-            val cal2 = viewModel.calendar.clone() as Calendar
+            val cal2 = viewModel.calendar!!.clone() as Calendar
             cal2[Calendar.HOUR_OF_DAY] = hour
             cal2[Calendar.MINUTE] = minute
+            cal2[Calendar.SECOND] = 0
             viewModel.onChangeDateTime(cal2)
-        }, calendar[Calendar.HOUR_OF_DAY], calendar[Calendar.MINUTE], true
+        }, hour, minute, true
     )
 
     val selectImageLauncher =
@@ -129,8 +157,14 @@ fun AddEditReminder(
                         )
                     }, backgroundColor = MaterialTheme.colors.background,
                     actions = {
-                        Button(onClick = { /*TODO*/ }) {
-                            Text(text = "Cancel")
+                        Button(onClick = {
+                            markAsDoneReminder.value = true
+                        },
+                        enabled = when {
+                            viewModel.reminder != null && viewModel.reminder!!.id != null -> true
+                            else -> false
+                        }) {
+                            Text(text = "Mark As Done")
                         }
                     })
                 Text(text = "Please fill below details...")
@@ -220,24 +254,69 @@ fun AddEditReminder(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
+
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Date range"
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
+
                         OutlinedButton(
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
+                                showNotificationSettings.value = !showNotificationSettings.value
+                            }) {
+                            Text(text = "Notification settings")
+                        }
+
+
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        when {
+                            viewModel.calendar != null -> Icon(
+                                imageVector = Icons.Default.Close,
+                                tint = Color.Red,
+                                contentDescription = "",
+                                modifier = Modifier.clickable {
+                                    viewModel.onChangeDateTime(null)
+                                }
+                            )
+                            else -> Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = "Date range"
+                            )
+                        }
+
+
+
+                        Spacer(modifier = Modifier.width(10.dp))
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth(),
+
+                            onClick = {
+                                if(viewModel.calendar == null){
+                                    viewModel.setNewCalendar()
+                                }
+
                                 datePickerDialog.show()
 
                             }) {
-                            Text(text = viewModel.calendar.time.formatToDateString())
+                            Text(
+                                text = when {
+                                    viewModel.calendar != null -> viewModel.calendar!!.time.formatToDateString()
+                                    else -> "Not set"
+                                }
+                            )
                         }
                     }
                     Row(
@@ -252,10 +331,16 @@ fun AddEditReminder(
                         Spacer(modifier = Modifier.width(10.dp))
                         OutlinedButton(
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = viewModel.calendar != null,
                             onClick = {
                                 timePickerDialog.show()
                             }) {
-                            Text(text = viewModel.calendar.time.formatToTimeString())
+                            Text(
+                                text = when {
+                                    viewModel.calendar != null -> viewModel.calendar!!.time.formatToTimeString()
+                                    else -> "Not set"
+                                }
+                            )
                         }
                     }
                     Row(
@@ -364,6 +449,68 @@ fun AddEditReminder(
                 viewModel.onChangeLocation(it)
             }, location = viewModel.location)
         }
+
+        if (showNotificationSettings.value) {
+            NotificationSettings(
+
+                toggleNotifySettings = {
+                    showNotificationSettings.value = !showNotificationSettings.value
+                },
+                notificationStatus = viewModel.enableNotification,
+                onTime = viewModel.onTime,
+                fiveMinsBefore = viewModel.fiveMins,
+                tenMinsBefore = viewModel.tenMins,
+                fifteenMinsBeofore = viewModel.fifteenMins,
+                thirtyMinsBefore = viewModel.thirtyMins,
+                onSave = { b: Boolean, b1: Boolean, b2: Boolean, b3: Boolean, b4: Boolean, b5: Boolean ->
+                        viewModel.onNotificationChange(
+                            notificationStatus = b,
+                            onTimeStatus = b1,
+                            fiveMinsStatus = b2,
+                            tenMinsStatus = b3,
+                            fifteenMinsStatus = b4,
+                            thirtyMInsStatus = b5
+                        )
+                    showNotificationSettings.value = !showNotificationSettings.value
+
+                }
+            )
+        }
+
+
+        if(markAsDoneReminder.value){
+            AlertDialog(onDismissRequest = { /*TODO*/ },
+                title = {
+                    Text(text = "Mark Reminder as Done")
+                },
+                text = {
+                        Text(text = "Are you sure you mark this as DONE ?")
+                },
+                buttons = {
+                    Row(modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp), horizontalArrangement = Arrangement.SpaceAround) {
+                        Button(modifier  = Modifier.width(100.dp),
+                            onClick = {
+                                markAsDoneReminder.value = false
+                            }) {
+                            Text(text = "Cancel")
+                        }
+
+                        Button(
+                            modifier = Modifier.width(100.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = MaterialTheme.colors.onError,
+                                contentColor = Color.Black),
+                            onClick = {
+                                viewModel.markAsDone()
+                            }) {
+                            Text(text = "Done")
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -432,6 +579,202 @@ private fun LocationPicker(
                         modifier = Modifier.width(150.dp),
                         enabled = location != null,
                         onClick = { /*TODO*/ }) {
+                        Text(text = "Confirm")
+                    }
+
+                    Button(
+                        modifier = Modifier.width(150.dp),
+                        onClick = { /*TODO*/ }) {
+                        Text(text = "Cancel")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationSettings(
+    notificationStatus: Boolean,
+    onTime: Boolean,
+    fiveMinsBefore: Boolean,
+    tenMinsBefore: Boolean,
+    fifteenMinsBeofore: Boolean,
+    thirtyMinsBefore: Boolean,
+    toggleNotifySettings: () -> Unit,
+    onSave:(
+        notificationStatus: Boolean,
+        onTime: Boolean,
+        fiveMinsBefore: Boolean,
+        tenMinsBefore: Boolean,
+        fifteenMinsBeofore: Boolean,
+        thirtyMinsBefore: Boolean,
+            )->Unit
+) {
+
+    Dialog(onDismissRequest = {
+        toggleNotifySettings()
+    }) {
+        val context = LocalContext.current
+
+        var notificationStatusVal = remember {
+            mutableStateOf(notificationStatus)
+        }
+
+        var onTimeVal = remember {
+            mutableStateOf(onTime)
+        }
+
+        var fiveMinVal = remember {
+            mutableStateOf(fiveMinsBefore)
+        }
+
+        var tenMinVal = remember {
+            mutableStateOf(tenMinsBefore)
+        }
+
+        var fifteenMinVal = remember {
+            mutableStateOf(fifteenMinsBeofore)
+        }
+
+        var thirtyMinVal = remember {
+            mutableStateOf(thirtyMinsBefore)
+        }
+
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colors.onSurface
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = "Modify Notification settings", color = Color.Black)
+
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "Notifications : ", color = Color.Black)
+                    Switch(
+                        checked = notificationStatusVal.value,
+                        onCheckedChange = {
+                            notificationStatusVal.value = !notificationStatusVal.value
+                        }
+                    )
+                    Text(text = when {
+                                     notificationStatusVal.value -> "enabled"
+                        else->"disabled"
+                                     }, color = Color.Black)
+                }
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "On Time : ", color = Color.Black)
+                    Checkbox(
+                        enabled = notificationStatusVal.value,
+                        modifier = Modifier.background(Color.Black),
+                        checked = onTimeVal.value,
+                        onCheckedChange = {
+                            onTimeVal.value = !onTimeVal.value
+                        }
+                    )
+                }
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "5 Minutes before :  ", color = Color.Black)
+                    Checkbox(
+                        enabled = notificationStatusVal.value,
+                        modifier = Modifier.background(Color.Black),
+                        checked = fiveMinVal.value,
+                        onCheckedChange = {
+
+                            fiveMinVal.value = !fiveMinVal.value
+                        }
+                    )
+                }
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "10 Minutes before : ", color = Color.Black)
+                    Checkbox(
+                        enabled = notificationStatusVal.value,
+                        modifier = Modifier.background(Color.Black),
+                        checked = tenMinVal.value,
+                        onCheckedChange = {
+                            tenMinVal.value = !tenMinVal.value
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "15 Minutes before : ", color = Color.Black)
+                    Checkbox(
+                        enabled = notificationStatusVal.value,
+                        modifier = Modifier.background(Color.Black),
+                        checked = fifteenMinVal.value,
+                        onCheckedChange = {
+                            fifteenMinVal.value = !fifteenMinVal.value
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text(text = "30 Minutes before : ", color = Color.Black)
+                    Checkbox(
+                        enabled = notificationStatusVal.value,
+                        modifier = Modifier.background(Color.Black),
+                        checked = thirtyMinVal.value,
+                        onCheckedChange = {
+                            thirtyMinVal.value = !thirtyMinVal.value
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+
+                    Button(
+                        modifier = Modifier.width(150.dp),
+                        onClick = {
+                            if(notificationStatusVal.value && !onTimeVal.value
+                                && !fiveMinVal.value
+                                && !tenMinVal.value
+                                && !fifteenMinVal.value
+                                && !thirtyMinVal.value){
+                                Toast.makeText(context,"At least one Notification Required",Toast.LENGTH_SHORT).show()
+                            }else {
+                                onSave(
+                                    notificationStatusVal.value,
+                                    onTimeVal.value,
+                                    fiveMinVal.value,
+                                    tenMinVal.value,
+                                    fifteenMinVal.value,
+                                    thirtyMinVal.value
+                                )
+                            }
+
+
+                        }) {
                         Text(text = "Confirm")
                     }
 

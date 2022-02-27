@@ -7,7 +7,7 @@ import com.sameeraw.remindbuddy.data.entity.Reminder
 
 @Database(
     entities = [Reminder::class],
-    version = 3,
+    version = 6,
     exportSchema = false,
 
 )

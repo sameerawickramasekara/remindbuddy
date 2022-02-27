@@ -24,7 +24,8 @@ fun Splash(
     viewModel: SplashViewModel = viewModel(
         factory = SplashViewModelFactory(UserRepository(LocalContext.current))
     ),
-    navController: NavHostController
+    navController: NavHostController,
+    reminderId:Long
 ) {
 
     
@@ -34,7 +35,12 @@ fun Splash(
                 is SplashViewModel.Event.LoggedIn-> {
 
                     Log.println(Log.INFO,"REM","LOGGEDIN")
-                    navController.navigate(Screen.Home.route)
+                    if(reminderId != -1L){
+                        navController.navigate(Screen.AddEditReminder.route+"?reminderId=${reminderId}")
+                    }else {
+                        navController.navigate(Screen.Home.route)
+                    }
+
                 }
                 is SplashViewModel.Event.LoggedOut-> {
                     navController.navigate(Screen.Login.route)

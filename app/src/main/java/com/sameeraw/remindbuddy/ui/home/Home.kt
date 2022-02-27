@@ -43,6 +43,10 @@ fun Home(
         mutableStateOf(false)
     }
 
+    val showAll = rememberSaveable {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(key1 = true) {
 
         viewModel.eventsFlow.collect { event ->
@@ -93,6 +97,12 @@ fun Home(
                         )
                     }, backgroundColor = MaterialTheme.colors.background,
                     actions = {
+                        Text(text = "Completed",style = MaterialTheme.typography.caption)
+                        Switch(checked = showAll.value, onCheckedChange = {
+                            showAll.value = !showAll.value
+                        })
+                        Text(text = "All", style = MaterialTheme.typography.caption)
+
                         IconButton(onClick = {}) {
                             Icon(
                                 imageVector = Icons.Default.Search,
@@ -137,7 +147,7 @@ fun Home(
                         }
 
                     })
-                ReminderList(navController = navController)
+                ReminderList(navController = navController, showAll =showAll.value )
             }
 
         }

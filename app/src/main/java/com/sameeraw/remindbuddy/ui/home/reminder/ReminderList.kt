@@ -19,9 +19,11 @@ import com.sameeraw.remindbuddy.ui.navigation.Screen
 @Composable
 fun ReminderList(
     viewModel: ReminderListViewModel = hiltViewModel(),
-    navController: NavHostController
+    navController: NavHostController,
+    showAll:Boolean = false
 ) {
     val reminders = viewModel.reminders.collectAsState(initial = emptyList())
+
 
     val deleteReminder = rememberSaveable{
         mutableStateOf<Reminder?>(null)
@@ -68,7 +70,14 @@ fun ReminderList(
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(reminders.value) { item ->
+
+            items(reminders.value.filter {
+                if(!showAll){
+                    (it.locationX ==null && it.locationY==null && it.reminderTime==null) || it.reminderSeen
+                }else {
+                    true
+                }
+            }) { item ->
                 ReminderListItem(reminder = item, onItemClick = {
                     navController.navigate(Screen.AddEditReminder.route+"?reminderId=${item.id}")
                 }, onDeleteClick = {
