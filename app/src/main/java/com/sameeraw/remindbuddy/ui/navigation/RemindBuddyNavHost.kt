@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.sameeraw.remindbuddy.ui.Register
 import com.sameeraw.remindbuddy.ui.home.reminder.AddEditReminder
 import com.sameeraw.remindbuddy.ui.home.Home
@@ -14,6 +15,7 @@ import com.sameeraw.remindbuddy.ui.login.Login
 import com.sameeraw.remindbuddy.ui.login.PINLogin
 import com.sameeraw.remindbuddy.ui.splash.Splash
 
+@ExperimentalPermissionsApi
 @ExperimentalComposeUiApi
 @Composable
 fun RemindBuddyNavHost(navController: NavHostController, reminderId:Long) {

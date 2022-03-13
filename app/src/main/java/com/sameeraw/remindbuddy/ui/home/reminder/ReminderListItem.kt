@@ -1,6 +1,9 @@
 package com.sameeraw.remindbuddy.ui.home.reminder
 
 import android.net.Uri
+import android.os.Build
+import android.speech.tts.TextToSpeech
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -22,9 +26,12 @@ import com.skydoves.landscapist.glide.GlideImage
 import java.text.SimpleDateFormat
 import java.util.*
 
+
 @Composable
-fun ReminderListItem(reminder: Reminder,onItemClick :()->Unit,
-onDeleteClick:()->Unit) {
+fun ReminderListItem(
+    reminder: Reminder, onItemClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
 
     val reminderIcons = listOf<ImageVector>(
         Icons.Default.SupervisedUserCircle,
@@ -38,14 +45,18 @@ onDeleteClick:()->Unit) {
         Icons.Default.Phone
     )
 
-    ConstraintLayout(modifier = Modifier
-        .clickable {
-            onItemClick()
-        }
-        .fillMaxWidth()
-        .height(80.dp),
+
+    val context = LocalContext.current
+
+    ConstraintLayout(
+        modifier = Modifier
+            .clickable {
+                onItemClick()
+            }
+            .fillMaxWidth()
+            .height(80.dp),
     ) {
-        val (divider, reminderTitle,reminderDescription, reminderDate, reminderIcon, reminderImage,deleteIcon) = createRefs()
+        val (divider, reminderTitle, reminderDescription, reminderDate, reminderIcon, reminderImage, deleteIcon, voice) = createRefs()
         Divider(
             modifier = Modifier.constrainAs(divider) {
                 top.linkTo(parent.top)
@@ -53,11 +64,13 @@ onDeleteClick:()->Unit) {
             }
         )
 
-        if(reminder.imageURL != null ){
-            GlideImage(imageModel = Uri.parse(reminder.imageURL),
+        if (reminder.imageURL != null) {
+            GlideImage(
+                imageModel = Uri.parse(reminder.imageURL),
                 Modifier
                     .fillMaxWidth()
-                    .height(80.dp), alpha = 0.2f)
+                    .height(80.dp), alpha = 0.2f
+            )
         }
 
         IconButton(onClick = { /*TODO*/ }, modifier = Modifier
@@ -69,10 +82,10 @@ onDeleteClick:()->Unit) {
             }) {
             Icon(imageVector = reminderIcons.first {
                 it.name == reminder.icon
-            }, contentDescription = "Check",modifier = Modifier.size(50.dp))
+            }, contentDescription = "Check", modifier = Modifier.size(50.dp))
         }
 
-        Text(text = "${if(reminder.reminderSeen)"[DONE]" else ""}${reminder.title}",
+        Text(text = "${if (reminder.reminderSeen) "[DONE]" else ""}${reminder.title}",
             maxLines = 1,
             style = MaterialTheme.typography.h6,
             modifier = Modifier.constrainAs(reminderTitle) {
@@ -87,15 +100,15 @@ onDeleteClick:()->Unit) {
             modifier = Modifier.constrainAs(reminderDescription) {
                 top.linkTo(parent.top, margin = 15.dp)
                 bottom.linkTo(reminderTitle.bottom)
-                start.linkTo(reminderTitle.end,margin = 5.dp)
+                start.linkTo(reminderTitle.end, margin = 5.dp)
                 width = Dimension.preferredWrapContent
             })
-       //Date
+        //Date
         Text(
             text = when {
-                        reminder.reminderTime!=null -> "On " +reminder.reminderTime.formatToString() + " At, "+ reminder.reminderTime.formatToTimeString()
-                        else -> ""
-                        },
+                reminder.reminderTime != null -> "On " + reminder.reminderTime.formatToString() + " At, " + reminder.reminderTime.formatToTimeString()
+                else -> ""
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.subtitle2,
@@ -105,6 +118,58 @@ onDeleteClick:()->Unit) {
                 start.linkTo(reminderIcon.end)
             }
         )
+
+        IconButton(onClick = {
+
+
+            var mTTS: TextToSpeech? = null
+            mTTS = TextToSpeech(context, TextToSpeech.OnInitListener { i ->
+                if (i == TextToSpeech.SUCCESS) {
+
+                    val result = mTTS!!.setLanguage(Locale.US)
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                        || result == TextToSpeech.LANG_NOT_SUPPORTED
+                    ) {
+                        Log.e("TTS", "Language Not Supported")
+                    } else {
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            mTTS!!.speak(
+                                reminder.title + " " + reminder.message,
+                                TextToSpeech.QUEUE_FLUSH,
+                                null,
+                                ""
+                            )
+
+                        } else {
+                            @Suppress("DEPRECATION")
+                            mTTS!!.speak(
+                                reminder.title + " " + reminder.message,
+                                TextToSpeech.QUEUE_FLUSH,
+                                null
+                            )
+                        }
+                    }
+                } else {
+                    Log.e("TTS", "Initialization Failed")
+                }
+            })
+
+        }, modifier = Modifier
+            .size(50.dp)
+            .padding(6.dp)
+            .constrainAs(voice) {
+                top.linkTo(parent.top, 10.dp)
+                bottom.linkTo(parent.bottom, 10.dp)
+                end.linkTo(deleteIcon.start)
+            }) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Check",
+                tint = Color.Red
+            )
+        }
+
         IconButton(onClick = { onDeleteClick() }, modifier = Modifier
             .size(50.dp)
             .padding(6.dp)

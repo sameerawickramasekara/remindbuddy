@@ -1,10 +1,19 @@
 package com.sameeraw.remindbuddy.ui.home.reminder
 
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.app.TimePickerDialog
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,14 +34,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.google.accompanist.insets.systemBarsPadding
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofencingRequest
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.GoogleMapOptions
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationToken
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.sameeraw.remindbuddy.GeofenceBroadcastReceiver
 import com.sameeraw.remindbuddy.ui.navigation.Screen
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.flow.collect
@@ -40,13 +60,27 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
+@SuppressLint("MissingPermission")
+@OptIn(ExperimentalPermissionsApi::class)
+@ExperimentalPermissionsApi
 @Composable
+
+
 fun AddEditReminder(
     navController: NavHostController,
     viewModel: ReminderViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 
+    val geofenceList = mutableListOf<Geofence?>()
+
+    val locationPermissionsState = rememberMultiplePermissionsState(
+        listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+        )
+    )
 
     LaunchedEffect(key1 = true) {
         viewModel.eventsFlow.collect { event ->
@@ -59,10 +93,44 @@ fun AddEditReminder(
                     Toast.makeText(context, "Reminder Marked as Done", Toast.LENGTH_LONG).show()
                     navController.navigate(Screen.Home.route)
                 }
+                is ReminderViewModel.ReminderEvent.Permission -> {
+                    locationPermissionsState.launchMultiplePermissionRequest()
+                }
             }
         }
 
     }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) {
+        if (it.resultCode != Activity.RESULT_OK) {
+            return@rememberLauncherForActivityResult
+        }
+
+        val result = it.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+
+        if (result !== null) {
+            val content = result[0] ?: ""
+            viewModel.onChangeTitle(content)
+        }
+    }
+
+    val descLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) {
+        if (it.resultCode != Activity.RESULT_OK) {
+            return@rememberLauncherForActivityResult
+        }
+
+        val result = it.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+
+        if (result !== null) {
+            val content = result[0] ?: ""
+            viewModel.onChangeDescription(content)
+        }
+    }
+
 
     val showLocationPicker = rememberSaveable {
         mutableStateOf(false)
@@ -125,12 +193,85 @@ fun AddEditReminder(
 
     val expandImageMenu = remember { mutableStateOf(false) }
 
+
+
     Surface() {
         Scaffold(
             modifier = Modifier.padding(bottom = 24.dp),
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = {
+                        if (viewModel.calendar == null && viewModel.location != null) {
+                            if (
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+                                && ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+                                && ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.WAKE_LOCK
+                                ) == PackageManager.PERMISSION_GRANTED
+                                && ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.INTERNET
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+
+                                geofenceList.add(viewModel!!.location?.let {
+                                    viewModel!!.location?.let { it1 ->
+                                        Geofence.Builder()
+                                            .setRequestId("sdf")
+
+                                            .setCircularRegion(
+                                                it.latitude,
+                                                it1.longitude,
+                                                200F
+                                            )
+                                            .setExpirationDuration(900000)
+                                            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
+                                            .build()
+                                    }
+                                })
+
+                                val req = GeofencingRequest.Builder().apply {
+                                    setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                                    addGeofences(geofenceList)
+                                }.build()
+
+                                val geofencePendingIntent: PendingIntent by lazy {
+                                    val intent =
+                                        Intent(context, GeofenceBroadcastReceiver::class.java)
+                                    intent.putExtra("reminderName", viewModel.title)
+                                    intent.putExtra("reminderDesc", viewModel.description)
+                                    PendingIntent.getBroadcast(
+                                        context,
+                                        0,
+                                        intent,
+                                        PendingIntent.FLAG_UPDATE_CURRENT
+                                    )
+                                }
+
+
+
+
+                                LocationServices.getGeofencingClient(context).addGeofences(
+                                    req, geofencePendingIntent
+                                ).run {
+                                    addOnSuccessListener {
+                                        Log.d("TAG", "GEOFENCE ADDDED")
+                                    }
+                                    addOnFailureListener {
+                                        Log.d("TAG", "GEOFENCE FAILED", it)
+                                    }
+                                }
+                            } else {
+                                locationPermissionsState.launchMultiplePermissionRequest()
+                            }
+                        }
                         viewModel.onSaveReminder()
                     },
                     contentColor = MaterialTheme.colors.primaryVariant,
@@ -157,13 +298,15 @@ fun AddEditReminder(
                         )
                     }, backgroundColor = MaterialTheme.colors.background,
                     actions = {
-                        Button(onClick = {
-                            markAsDoneReminder.value = true
-                        },
-                        enabled = when {
-                            viewModel.reminder != null && viewModel.reminder!!.id != null -> true
-                            else -> false
-                        }) {
+                        Button(
+                            onClick = {
+                                markAsDoneReminder.value = true
+                            },
+                            enabled = when {
+                                viewModel.reminder != null && viewModel.reminder!!.id != null -> true
+                                else -> false
+                            }
+                        ) {
                             Text(text = "Mark As Done")
                         }
                     })
@@ -177,28 +320,109 @@ fun AddEditReminder(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-                    OutlinedTextField(value = viewModel.title, onValueChange = {
-                        viewModel.onChangeTitle(it)
-                    }, label = {
-                        Text(
-                            text = "Title"
+                    Row(
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = viewModel.title,
+                            onValueChange = {
+                                viewModel.onChangeTitle(it)
+                            },
+                            label = {
+                                Text(
+                                    text = "Title"
+                                )
+                            },
+//                            modifier = Modifier.fillMaxWidth()
                         )
-                    },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Speack title",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clickable {
 
-                    OutlinedTextField(
-                        value = viewModel.description, onValueChange = {
-                            viewModel.onChangeDescription(it)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = {
-                            Text(
-                                text = "Message"
-                            )
 
-                        }, maxLines = 5
-                    )
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                    )
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE,
+                                        Locale.getDefault()
+                                    )
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_PROMPT,
+                                        "Please speak now"
+                                    )
+
+                                    val pendIntent =
+                                        PendingIntent.getActivity(context, 0, intent, 0)
+
+                                    launcher.launch(
+                                        IntentSenderRequest
+                                            .Builder(pendIntent)
+                                            .build()
+                                    )
+                                })
+                    }
+
+
+
+                    Row(
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        OutlinedTextField(
+                            value = viewModel.description, onValueChange = {
+                                viewModel.onChangeDescription(it)
+                            },
+                            label = {
+                                Text(
+                                    text = "Message"
+                                )
+
+                            }, maxLines = 5
+                        )
+
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Speack desc",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clickable {
+
+
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                    )
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE,
+                                        Locale.getDefault()
+                                    )
+                                    intent.putExtra(
+                                        RecognizerIntent.EXTRA_PROMPT,
+                                        "Please speak now"
+                                    )
+
+                                    val pendIntent =
+                                        PendingIntent.getActivity(context, 0, intent, 0)
+
+                                    descLauncher.launch(
+                                        IntentSenderRequest
+                                            .Builder(pendIntent)
+                                            .build()
+                                    )
+                                })
+                    }
+
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(
@@ -304,7 +528,7 @@ fun AddEditReminder(
                             modifier = Modifier.fillMaxWidth(),
 
                             onClick = {
-                                if(viewModel.calendar == null){
+                                if (viewModel.calendar == null) {
                                     viewModel.setNewCalendar()
                                 }
 
@@ -463,14 +687,14 @@ fun AddEditReminder(
                 fifteenMinsBeofore = viewModel.fifteenMins,
                 thirtyMinsBefore = viewModel.thirtyMins,
                 onSave = { b: Boolean, b1: Boolean, b2: Boolean, b3: Boolean, b4: Boolean, b5: Boolean ->
-                        viewModel.onNotificationChange(
-                            notificationStatus = b,
-                            onTimeStatus = b1,
-                            fiveMinsStatus = b2,
-                            tenMinsStatus = b3,
-                            fifteenMinsStatus = b4,
-                            thirtyMInsStatus = b5
-                        )
+                    viewModel.onNotificationChange(
+                        notificationStatus = b,
+                        onTimeStatus = b1,
+                        fiveMinsStatus = b2,
+                        tenMinsStatus = b3,
+                        fifteenMinsStatus = b4,
+                        thirtyMInsStatus = b5
+                    )
                     showNotificationSettings.value = !showNotificationSettings.value
 
                 }
@@ -478,19 +702,21 @@ fun AddEditReminder(
         }
 
 
-        if(markAsDoneReminder.value){
+        if (markAsDoneReminder.value) {
             AlertDialog(onDismissRequest = { /*TODO*/ },
                 title = {
                     Text(text = "Mark Reminder as Done")
                 },
                 text = {
-                        Text(text = "Are you sure you mark this as DONE ?")
+                    Text(text = "Are you sure you mark this as DONE ?")
                 },
                 buttons = {
-                    Row(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                        Button(modifier  = Modifier.width(100.dp),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp), horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        Button(modifier = Modifier.width(100.dp),
                             onClick = {
                                 markAsDoneReminder.value = false
                             }) {
@@ -501,7 +727,8 @@ fun AddEditReminder(
                             modifier = Modifier.width(100.dp),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = MaterialTheme.colors.onError,
-                                contentColor = Color.Black),
+                                contentColor = Color.Black
+                            ),
                             onClick = {
                                 viewModel.markAsDone()
                             }) {
@@ -530,6 +757,7 @@ private fun IconChip(icon: ImageVector, selected: Boolean, modifier: Modifier) {
     }
 }
 
+@SuppressLint("MissingPermission")
 @Composable
 private fun LocationPicker(
     toggleLocationPicker: () -> Unit,
@@ -537,7 +765,10 @@ private fun LocationPicker(
     location: LatLng?
 ) {
 
-    val defaultLocation = location ?: LatLng(1.0, 1.0)
+    var defaultLocation = location ?: LatLng(1.0, 1.0)
+    val context = LocalContext.current
+    val cam = rememberCameraPositionState()
+
     Dialog(onDismissRequest = {
         toggleLocationPicker()
     }) {
@@ -551,9 +782,11 @@ private fun LocationPicker(
             ) {
                 Text(text = "Pick a reminder Trigger Location", color = Color.Black)
                 GoogleMap(
+
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(400.dp),
+                    cameraPositionState = cam,
                     googleMapOptionsFactory = {
                         GoogleMapOptions().camera(
                             CameraPosition.fromLatLngZoom(
@@ -570,10 +803,30 @@ private fun LocationPicker(
                     location?.let { it1 -> Marker(position = it1) }
                 }
                 Spacer(Modifier.height(10.dp))
+                Button(
+                    modifier = Modifier.width(150.dp),
+                    onClick = {
+
+                        val src = CancellationTokenSource()
+                        val ct: CancellationToken = src.token
+                        val client = LocationServices.getFusedLocationProviderClient(context)
+                        client.getCurrentLocation(LocationRequest.PRIORITY_HIGH_ACCURACY, ct)
+                            .addOnSuccessListener {
+                                cam.position = CameraPosition.fromLatLngZoom(
+                                    LatLng(it.latitude, it.longitude),
+                                    15f
+                                )
+                                confirmLocation(LatLng(it.latitude, it.longitude))
+                            }
+
+                    }) {
+                    Text(text = "Set current Location")
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
+
 
                     Button(
                         modifier = Modifier.width(150.dp),
@@ -602,14 +855,14 @@ fun NotificationSettings(
     fifteenMinsBeofore: Boolean,
     thirtyMinsBefore: Boolean,
     toggleNotifySettings: () -> Unit,
-    onSave:(
+    onSave: (
         notificationStatus: Boolean,
         onTime: Boolean,
         fiveMinsBefore: Boolean,
         tenMinsBefore: Boolean,
         fifteenMinsBeofore: Boolean,
         thirtyMinsBefore: Boolean,
-            )->Unit
+    ) -> Unit
 ) {
 
     Dialog(onDismissRequest = {
@@ -663,10 +916,12 @@ fun NotificationSettings(
                             notificationStatusVal.value = !notificationStatusVal.value
                         }
                     )
-                    Text(text = when {
-                                     notificationStatusVal.value -> "enabled"
-                        else->"disabled"
-                                     }, color = Color.Black)
+                    Text(
+                        text = when {
+                            notificationStatusVal.value -> "enabled"
+                            else -> "disabled"
+                        }, color = Color.Black
+                    )
                 }
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -756,13 +1011,18 @@ fun NotificationSettings(
                     Button(
                         modifier = Modifier.width(150.dp),
                         onClick = {
-                            if(notificationStatusVal.value && !onTimeVal.value
+                            if (notificationStatusVal.value && !onTimeVal.value
                                 && !fiveMinVal.value
                                 && !tenMinVal.value
                                 && !fifteenMinVal.value
-                                && !thirtyMinVal.value){
-                                Toast.makeText(context,"At least one Notification Required",Toast.LENGTH_SHORT).show()
-                            }else {
+                                && !thirtyMinVal.value
+                            ) {
+                                Toast.makeText(
+                                    context,
+                                    "At least one Notification Required",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
                                 onSave(
                                     notificationStatusVal.value,
                                     onTimeVal.value,

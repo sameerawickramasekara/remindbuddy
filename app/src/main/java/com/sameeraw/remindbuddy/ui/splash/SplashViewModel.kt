@@ -12,26 +12,25 @@ import kotlinx.coroutines.launch
 
 class SplashViewModel(
     private val userRepository: UserRepository
-):ViewModel()
-{
+) : ViewModel() {
     sealed class Event {
         object LoggedIn : SplashViewModel.Event()
-        object LoggedOut: SplashViewModel.Event()
+        object LoggedOut : SplashViewModel.Event()
     }
 
     private val eventChannel = Channel<SplashViewModel.Event>(Channel.BUFFERED)
     val eventsFlow = eventChannel.receiveAsFlow()
 
-    fun checkLoginStatus(){
+    fun checkLoginStatus() {
 
         viewModelScope.launch {
             userRepository.getLoggedInStatus().collect { loggedin ->
 
-                userRepository.getKeepLoggedIn().collect{ rem ->
+                userRepository.getKeepLoggedIn().collect { rem ->
 
-                    if(loggedin && rem){
+                    if (loggedin && rem) {
                         eventChannel.send(SplashViewModel.Event.LoggedIn)
-                    }else {
+                    } else {
                         eventChannel.send(SplashViewModel.Event.LoggedOut)
                     }
                 }
